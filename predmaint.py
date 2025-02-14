@@ -18,14 +18,13 @@ class LSTMFaultPredictor(nn.Module):
         
     def forward(self, x):
         lstm_out, _ = self.lstm(x)
-        # Get the output of the last time step
         out = self.fc(lstm_out[:, -1, :])
         return out
 
 def load_time_series_data(filepath):
     """
     Load time series sensor data from CSV.
-    Assumes a column 'timestamp' and other sensor readings.
+    Assumes a 'timestamp' column and 'sensor_value' column.
     """
     df = pd.read_csv(filepath)
     df.sort_values('timestamp', inplace=True)
@@ -40,26 +39,23 @@ def create_sequences(data, window_size):
     return np.array(sequences), np.array(targets)
 
 if __name__ == "__main__":
-    # Load and preprocess data
-    data_filepath = 'sensor_data.csv'  # replace with your time series file
+    data_filepath = 'D:\Innothon\sensor_data.csv'
     df = load_time_series_data(data_filepath)
     
-    # For simplicity, we use one sensor column, e.g., 'temperature'
-    sensor_data = df['temperature'].values.reshape(-1, 1)
+    # Use 'sensor_value' column as input
+    sensor_data = df['sensor_value'].values.astype(float).reshape(-1, 1)
     scaler = MinMaxScaler()
     sensor_data = scaler.fit_transform(sensor_data)
     
     window_size = 10  # Number of time steps
     X, y = create_sequences(sensor_data, window_size)
     
-    # Convert to tensors
     X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
     y_tensor = torch.tensor(y, dtype=torch.float32).to(device)
     
     dataset = TensorDataset(X_tensor, y_tensor)
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
     
-    # Model parameters
     input_size = 1
     hidden_size = 50
     num_layers = 2
@@ -70,7 +66,6 @@ if __name__ == "__main__":
     criterion = nn.MSELoss()  # For regression forecasting
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     
-    # Training loop
     epochs = 20
     for epoch in range(epochs):
         for sequences, targets in dataloader:
@@ -79,8 +74,9 @@ if __name__ == "__main__":
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
-        
         print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
     
-    # After training, use the model to predict future sensor readings.
-    # These predictions can serve as an early warning for faults.
+    # Use the trained model to predict future sensor readings
+    test_sequence = X_tensor[-1].unsqueeze(0)  # add batch dimension
+    predicted_value = model(test_sequence)
+    print("Predicted sensor value:", predicted_value.item())

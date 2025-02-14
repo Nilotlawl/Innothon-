@@ -1,42 +1,68 @@
-import paho.mqtt.client as mqtt
+# mqtt_to_csv.py
+import json
 import csv
-import datetime
 import os
+from datetime import datetime
+import paho.mqtt.client as mqtt
 
-# Path to the CSV file which will be updated with sensor data
-CSV_FILE = "sensor_data.csv"
+# MQTT Broker configuration
+MQTT_BROKER = "your_broker_ip_or_hostname"  # Change to your broker's address
+MQTT_PORT = 1883
+MQTT_TOPIC = "renewable/energy"  # The topic your Raspberry Pi is publishing to
 
-# MQTT broker configuration (update with your broker's details)
-BROKER = "mqtt.example.com"  # Replace with your broker address
-PORT = 1883
-TOPIC = "sensor/data"        # Replace with your desired topic
+# CSV file path
+CSV_FILE = "data/dataset.csv"
 
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code " + str(rc))
-    client.subscribe(TOPIC)
+    if rc == 0:
+        print("Connected to MQTT Broker!")
+        client.subscribe(MQTT_TOPIC)
+    else:
+        print("Failed to connect, return code %d\n", rc)
 
 def on_message(client, userdata, msg):
-    # Decode the payload (assuming it's in string format)
-    sensor_payload = msg.payload.decode()
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Check if CSV file exists to write header if necessary
-    file_exists = os.path.isfile(CSV_FILE)
-    with open(CSV_FILE, mode="a", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        if not file_exists:
-            # Write header if the file is new
-            writer.writerow(["timestamp", "sensor_value"])
-        writer.writerow([timestamp, sensor_payload])
-    print(f"Data logged at {timestamp}: {sensor_payload}")
+    try:
+        # Decode the incoming message
+        payload = json.loads(msg.payload.decode())
+        
+        # Extract required fields
+        timestamp = payload.get("timestamp", datetime.now().isoformat())
+        voltage = payload.get("voltage")
+        current = payload.get("current")
+        temperature = payload.get("temperature")
+        
+        # Check for completeness of data
+        if voltage is None or current is None or temperature is None:
+            print("Incomplete data received:", payload)
+            return
+
+        # Check if CSV file exists to write headers if not
+        file_exists = os.path.isfile(CSV_FILE)
+        with open(CSV_FILE, mode='a', newline='') as csv_file:
+            fieldnames = ["timestamp", "voltage", "current", "temperature"]
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow({
+                "timestamp": timestamp,
+                "voltage": voltage,
+                "current": current,
+                "temperature": temperature
+            })
+        print(f"Data logged: {timestamp}, Voltage: {voltage}, Current: {current}, Temp: {temperature}")
+    except Exception as e:
+        print("Error processing message:", e)
 
 def main():
+    # Ensure the directory exists for the CSV file
+    os.makedirs(os.path.dirname(CSV_FILE), exist_ok=True)
+
     client = mqtt.Client()
     client.on_connect = on_connect
     client.on_message = on_message
 
-    client.connect(BROKER, PORT, 60)
+    client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
     client.loop_forever()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
