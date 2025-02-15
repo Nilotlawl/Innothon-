@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader, random_split
 from dataset import TimeSeriesDataset
 from model import LSTMModel
 
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def train_model(model, train_loader, val_loader, device, num_epochs=50, lr=0.001):
     criterion = nn.MSELoss()  # For regression tasks, MSE loss is common
     optimizer = optim.Adam(model.parameters(), lr=lr)

@@ -3,6 +3,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device)
 class TimeSeriesDataset(Dataset):
     def __init__(self, csv_file, seq_length=10, target_column='solar_power_output', feature_columns=None):
         """
@@ -40,3 +42,4 @@ class TimeSeriesDataset(Dataset):
         target = torch.tensor(target, dtype=torch.float32)
         
         return sequence, target
+    

@@ -1,7 +1,7 @@
 # model.py
 import torch
 import torch.nn as nn
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class LSTMModel(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size, dropout=0.0):
         super(LSTMModel, self).__init__()
@@ -28,3 +28,4 @@ class LSTMModel(nn.Module):
         out = out[:, -1, :]             # (batch_size, hidden_size)
         out = self.fc(out)              # (batch_size, output_size)
         return out
+     
