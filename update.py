@@ -5,12 +5,10 @@ import os
 from datetime import datetime
 import paho.mqtt.client as mqtt
 
-# MQTT Broker configuration
-MQTT_BROKER = "your_broker_ip_or_hostname"  # Change to your broker's address
+MQTT_BROKER = "mqtt.eclipse.org"  # Same as on Raspberry Pi
 MQTT_PORT = 1883
-MQTT_TOPIC = "renewable/energy"  # The topic your Raspberry Pi is publishing to
+MQTT_TOPIC = "renewable_energy_data"  # Must match publisher
 
-# CSV file path
 CSV_FILE = "data/dataset.csv"
 
 def on_connect(client, userdata, flags, rc):
@@ -22,21 +20,18 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     try:
-        # Decode the incoming message
         payload = json.loads(msg.payload.decode())
-        
-        # Extract required fields
         timestamp = payload.get("timestamp", datetime.now().isoformat())
         voltage = payload.get("voltage")
         current = payload.get("current")
         temperature = payload.get("temperature")
         
-        # Check for completeness of data
+        # Check for completeness
         if voltage is None or current is None or temperature is None:
             print("Incomplete data received:", payload)
             return
 
-        # Check if CSV file exists to write headers if not
+        # Write to CSV
         file_exists = os.path.isfile(CSV_FILE)
         with open(CSV_FILE, mode='a', newline='') as csv_file:
             fieldnames = ["timestamp", "voltage", "current", "temperature"]
@@ -54,10 +49,8 @@ def on_message(client, userdata, msg):
         print("Error processing message:", e)
 
 def main():
-    # Ensure the directory exists for the CSV file
     os.makedirs(os.path.dirname(CSV_FILE), exist_ok=True)
-
-    client = mqtt.Client()
+    client = mqtt.Client(protocol=mqtt.MQTTv311)
     client.on_connect = on_connect
     client.on_message = on_message
 
